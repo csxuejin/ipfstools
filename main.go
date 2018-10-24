@@ -219,7 +219,7 @@ func PinRmFiles(c *cli.Context) error {
 
 	data, err := ioutil.ReadFile(fileHashPath)
 	if err != nil {
-		log.Fatalf("ioutil.ReadFile(%v): %v\n", fileHashes, err)
+		log.Fatalf("ioutil.ReadFile(%v): %v\n", fileHashPath, err)
 		return nil
 	}
 
