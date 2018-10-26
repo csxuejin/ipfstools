@@ -31,7 +31,7 @@
 ``` go
 type Config struct {
 	AddFileWorkerNum    int `json:"add_file_worker_num"`  // 进行 add 操作的并发 worker 数目，默认为 10
-    PinAddFileWorkerNum int `json:"pin_add_file_worker_num"` // 进行 pin add 操作的并发 worker 数目，默认为 10
+        PinAddFileWorkerNum int `json:"pin_add_file_worker_num"` // 进行 pin add 操作的并发 worker 数目，默认为 10
 	PinAddWaitTime      int `json:"pin_add_wait_time"`  // 每一个 pin add 操作的间隔时间，单位为分钟
 }
 ```
