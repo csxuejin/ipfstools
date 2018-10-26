@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -20,8 +21,20 @@ const (
 )
 
 var (
-	fileHashPath string
+	config Config
+
+	fileHashPath               string
+	DefaultAddFileWG           sync.WaitGroup
+	DefaultAddFileWorkerNum    = 10
+	DefaultPinAddFileWG        sync.WaitGroup
+	DefaultPinAddFileWorkerNum = 10
 )
+
+type Config struct {
+	AddFileWorkerNum    int `json:"add_file_worker_num"`
+	PinAddFileWorkerNum int `json:"pin_add_file_worker_num"`
+	PinAddWaitTime      int `json:"pin_add_wait_time"`
+}
 
 func init() {
 	filePath, err := os.Getwd()
@@ -30,7 +43,27 @@ func init() {
 		panic("os.GetWd(): " + err.Error())
 	}
 
+	configFilePath := path.Join(filePath, "config.json")
+	_, err = os.Stat(configFilePath)
+	if os.IsNotExist(err) {
+		config.AddFileWorkerNum = DefaultAddFileWorkerNum
+		config.PinAddFileWorkerNum = DefaultPinAddFileWorkerNum
+	} else {
+		data, err := ioutil.ReadFile(configFilePath)
+		if err != nil {
+			log.Fatalf("ioutil.ReadFile(%v): %v\n", configFilePath, err)
+			return
+		}
+
+		if err := json.Unmarshal(data, &config); err != nil {
+			log.Fatalf("json.Unmarshal(): %v\n", err)
+			return
+		}
+	}
+
 	fileHashPath = path.Join(filePath, FILE_HASH)
+
+	fmt.Printf("config is %#v\n", config)
 }
 
 func main() {
@@ -55,6 +88,12 @@ func main() {
 			Action:  PinRmFiles,
 		},
 		{
+			Name:    "rmall",
+			Aliases: []string{"rmall"},
+			Usage:   "pin rm all files",
+			Action:  PinRmAllFiles,
+		},
+		{
 			Name:    "gc",
 			Aliases: []string{"gc"},
 			Usage:   "ipfs repo gc",
@@ -68,11 +107,7 @@ func main() {
 	}
 }
 
-var (
-	addFileWG        sync.WaitGroup
-	addFileWorkerNum = 10
-)
-
+//////// 'add' operation
 func AddFiles(c *cli.Context) error {
 	filePath, err := os.Getwd()
 	if err != nil {
@@ -106,8 +141,8 @@ func AddFiles(c *cli.Context) error {
 	}
 
 	jobs := make(chan string, 200)
-	addFileWG.Add(addFileWorkerNum)
-	for w := 0; w < addFileWorkerNum; w++ {
+	DefaultAddFileWG.Add(config.AddFileWorkerNum)
+	for w := 0; w < config.AddFileWorkerNum; w++ {
 		go WorkerForAdd(jobs)
 	}
 
@@ -128,7 +163,7 @@ func AddFiles(c *cli.Context) error {
 	}
 
 	close(jobs)
-	addFileWG.Wait()
+	DefaultAddFileWG.Wait()
 
 	return nil
 }
@@ -139,7 +174,7 @@ func WorkerForAdd(jobs <-chan string) {
 		panic(err)
 	}
 
-	defer addFileWG.Done()
+	defer DefaultAddFileWG.Done()
 
 	for filePath := range jobs {
 		fmt.Println("filePath is : ", filePath)
@@ -165,16 +200,12 @@ func WorkerForAdd(jobs <-chan string) {
 
 }
 
-var (
-	pinAddFileWG        sync.WaitGroup
-	pinAddFileWorkerNum = 10
-)
-
+//////// 'pin add' operation
 func PinAddFiles(c *cli.Context) error {
 	fmt.Printf("time before pinadd op: %v\n", time.Now())
 	jobs := make(chan string, 200)
-	pinAddFileWG.Add(pinAddFileWorkerNum)
-	for w := 0; w < pinAddFileWorkerNum; w++ {
+	DefaultPinAddFileWG.Add(config.PinAddFileWorkerNum)
+	for w := 0; w < config.PinAddFileWorkerNum; w++ {
 		go WorkerForPinAdd(jobs)
 	}
 
@@ -189,9 +220,13 @@ func PinAddFiles(c *cli.Context) error {
 		if v != "" {
 			jobs <- v
 		}
+		if config.PinAddWaitTime > 0 {
+			fmt.Printf("Let's sleep %v minutes.\n", config.PinAddWaitTime)
+			time.Sleep(time.Minute * time.Duration(config.PinAddWaitTime))
+		}
 	}
 	close(jobs)
-	pinAddFileWG.Wait()
+	DefaultPinAddFileWG.Wait()
 
 	fmt.Printf("time after pinadd op: %v\n", time.Now())
 
@@ -199,7 +234,7 @@ func PinAddFiles(c *cli.Context) error {
 }
 
 func WorkerForPinAdd(jobs <-chan string) {
-	defer pinAddFileWG.Done()
+	defer DefaultPinAddFileWG.Done()
 
 	for hash := range jobs {
 		fmt.Println("hash is : ", hash)
@@ -239,6 +274,17 @@ func PinRmFiles(c *cli.Context) error {
 
 	fmt.Printf("time after pin rm op: %v\n", time.Now())
 
+	return nil
+}
+
+func PinRmAllFiles(c *cli.Context) error {
+	data, err := exec.Command("bash", "-c", "ipfs --api /ip4/127.0.0.1/tcp/9095 pin ls --type recursive | cut -d' ' -f1 | xargs -n1 ipfs --api /ip4/127.0.0.1/tcp/9095 pin rm").Output()
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	fmt.Printf("result is %v\n", string(data))
 	return nil
 }
 

@@ -1,0 +1,5 @@
+{
+    "pin_add_wait_time": 1,
+    "add_file_worker_num": 1,
+    "pin_add_file_worker_num": 1
+}
