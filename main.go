@@ -147,12 +147,12 @@ func AddFiles(c *cli.Context) error {
 }
 
 func WorkerForAdd(jobs <-chan string) {
+	defer defaultAddFileWG.Done()
+
 	f, err := os.OpenFile(hashFileAbsPath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		panic(err)
 	}
-
-	defer defaultAddFileWG.Done()
 
 	for filePath := range jobs {
 		log.Println("filePath is : ", filePath)
@@ -164,11 +164,10 @@ func WorkerForAdd(jobs <-chan string) {
 
 		result := string(data)
 		if strings.HasPrefix(result, "added") {
-			arr := strings.Split(string(data), " ")
-			if len(arr) == 3 {
-				_, err := f.WriteString(fmt.Sprintf("%v\n", arr[1]))
+			arr := strings.Split(result, " ")
 
-				if err != nil {
+			if len(arr) == 3 {
+				if _, err := f.WriteString(fmt.Sprintf("%v\n", arr[1])); err != nil {
 					log.Fatalf("file.WriteString(%v): %v\n", arr[1], err)
 				}
 			}
