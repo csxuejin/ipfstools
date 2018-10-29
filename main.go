@@ -22,8 +22,9 @@ type Config struct {
 }
 
 const (
-	DEFAULT_FOLDER = "testfiles"
-	HASH_FILE      = "filehashes"
+	DEFAULT_FOLDER      = "testfiles"
+	HASH_FILE           = "filehashes"
+	DEFAULT_TIME_FORMAT = "2006-01-02 15:04:05"
 )
 
 var (
@@ -160,6 +161,7 @@ func WorkerForAdd(jobs <-chan string) {
 		data, err := exec.Command("bash", "-c", "ipfs --api /ip4/127.0.0.1/tcp/9095 add "+filePath).Output()
 		if err != nil {
 			log.Fatal(err)
+			return
 		}
 
 		result := string(data)
@@ -178,7 +180,8 @@ func WorkerForAdd(jobs <-chan string) {
 
 //////// 'pin add' operation
 func PinAddFiles(c *cli.Context) error {
-	log.Printf("time before pinadd op: %v\n", time.Now())
+	log.Printf("time before pinadd op: %v\n", time.Now().Format(DEFAULT_TIME_FORMAT))
+
 	jobs := make(chan string, 200)
 	defaultPinAddFileWG.Add(config.PinAddFileWorkerNum)
 	for w := 0; w < config.PinAddFileWorkerNum; w++ {
@@ -204,7 +207,7 @@ func PinAddFiles(c *cli.Context) error {
 	close(jobs)
 	defaultPinAddFileWG.Wait()
 
-	log.Printf("time after pinadd op: %v\n", time.Now())
+	log.Printf("time after pinadd op: %v\n", time.Now().Format(DEFAULT_TIME_FORMAT))
 
 	return nil
 }
@@ -226,7 +229,7 @@ func WorkerForPinAdd(jobs <-chan string) {
 }
 
 func PinRmFiles(c *cli.Context) error {
-	log.Printf("time before pin rm op: %v\n", time.Now())
+	log.Printf("time before pin rm op: %v\n", time.Now().Format(DEFAULT_TIME_FORMAT))
 
 	data, err := ioutil.ReadFile(hashFileAbsPath)
 	if err != nil {
@@ -248,7 +251,7 @@ func PinRmFiles(c *cli.Context) error {
 		}
 	}
 
-	log.Printf("time after pin rm op: %v\n", time.Now())
+	log.Printf("time after pin rm op: %v\n", time.Now().Format(DEFAULT_TIME_FORMAT))
 	return nil
 }
 
@@ -264,7 +267,7 @@ func PinRmAllFiles(c *cli.Context) error {
 }
 
 func GC(c *cli.Context) error {
-	log.Printf("Time before gc op: %v\n", time.Now())
+	log.Printf("Time before gc op: %v\n", time.Now().Format(DEFAULT_TIME_FORMAT))
 
 	data, err := exec.Command("bash", "-c", "ipfs repo gc").Output()
 	if err != nil {
@@ -272,7 +275,7 @@ func GC(c *cli.Context) error {
 	}
 
 	log.Printf("result is %v\n", string(data))
-	log.Printf("Time after gc op: %v\n", time.Now())
+	log.Printf("Time after gc op: %v\n", time.Now().Format(DEFAULT_TIME_FORMAT))
 
 	return nil
 }
