@@ -63,7 +63,7 @@ func init() {
 
 	fileHashPath = path.Join(filePath, FILE_HASH)
 
-	fmt.Printf("config is %#v\n", config)
+	log.Printf("config is %#v\n", config)
 }
 
 func main() {
@@ -177,10 +177,9 @@ func WorkerForAdd(jobs <-chan string) {
 	defer DefaultAddFileWG.Done()
 
 	for filePath := range jobs {
-		fmt.Println("filePath is : ", filePath)
+		log.Println("filePath is : ", filePath)
 
 		data, err := exec.Command("bash", "-c", "ipfs --api /ip4/127.0.0.1/tcp/9095 add "+filePath).Output()
-
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -202,7 +201,7 @@ func WorkerForAdd(jobs <-chan string) {
 
 //////// 'pin add' operation
 func PinAddFiles(c *cli.Context) error {
-	fmt.Printf("time before pinadd op: %v\n", time.Now())
+	log.Printf("time before pinadd op: %v\n", time.Now())
 	jobs := make(chan string, 200)
 	DefaultPinAddFileWG.Add(config.PinAddFileWorkerNum)
 	for w := 0; w < config.PinAddFileWorkerNum; w++ {
@@ -221,14 +220,14 @@ func PinAddFiles(c *cli.Context) error {
 			jobs <- v
 		}
 		if config.PinAddWaitTime > 0 {
-			fmt.Printf("Let's sleep %v minutes.\n", config.PinAddWaitTime)
+			log.Printf("Let's sleep %v minutes.\n", config.PinAddWaitTime)
 			time.Sleep(time.Minute * time.Duration(config.PinAddWaitTime))
 		}
 	}
 	close(jobs)
 	DefaultPinAddFileWG.Wait()
 
-	fmt.Printf("time after pinadd op: %v\n", time.Now())
+	log.Printf("time after pinadd op: %v\n", time.Now())
 
 	return nil
 }
@@ -237,7 +236,7 @@ func WorkerForPinAdd(jobs <-chan string) {
 	defer DefaultPinAddFileWG.Done()
 
 	for hash := range jobs {
-		fmt.Println("hash is : ", hash)
+		log.Println("hash is : ")
 
 		data, err := exec.Command("bash", "-c", "ipfs --api /ip4/127.0.0.1/tcp/9095 pin add "+hash).Output()
 
@@ -245,12 +244,12 @@ func WorkerForPinAdd(jobs <-chan string) {
 			log.Fatal(err)
 		}
 
-		fmt.Printf("data is %v\n", string(data))
+		log.Printf("data is %v\n", string(data))
 	}
 }
 
 func PinRmFiles(c *cli.Context) error {
-	fmt.Printf("time before pin rm op: %v\n", time.Now())
+	log.Printf("time before pin rm op: %v\n", time.Now())
 
 	data, err := ioutil.ReadFile(fileHashPath)
 	if err != nil {
@@ -261,19 +260,18 @@ func PinRmFiles(c *cli.Context) error {
 	hashes := strings.Split(string(data), "\n")
 	for _, hash := range hashes {
 		if hash != "" {
-			fmt.Printf("ipfs pin rm %v\n", hash)
+			log.Printf("ipfs pin rm %v\n", hash)
 
 			data, err := exec.Command("bash", "-c", "ipfs pin rm "+hash).Output()
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			fmt.Printf("data is %v\n", string(data))
+			log.Printf("data is %v\n", string(data))
 		}
 	}
 
-	fmt.Printf("time after pin rm op: %v\n", time.Now())
-
+	log.Printf("time after pin rm op: %v\n", time.Now())
 	return nil
 }
 
@@ -284,20 +282,20 @@ func PinRmAllFiles(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Printf("result is %v\n", string(data))
+	log.Printf("result is %v\n", string(data))
 	return nil
 }
 
 func GC(c *cli.Context) error {
-	fmt.Printf("Time before gc op: %v\n", time.Now())
+	log.Printf("Time before gc op: %v\n", time.Now())
 
 	data, err := exec.Command("bash", "-c", "ipfs repo gc").Output()
 	if err != nil {
 		log.Fatalf("ipfs repo gc : %v\n", err)
 	}
 
-	fmt.Printf("result is %v\n", string(data))
+	log.Printf("result is %v\n", string(data))
+	log.Printf("Time after gc op: %v\n", time.Now())
 
-	fmt.Printf("Time after gc op: %v\n", time.Now())
 	return nil
 }
