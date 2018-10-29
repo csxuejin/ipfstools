@@ -199,6 +199,7 @@ func PinAddFiles(c *cli.Context) error {
 		if v != "" {
 			jobs <- v
 		}
+
 		if config.PinAddWaitTime > 0 {
 			log.Printf("Let's sleep %v minutes.\n", config.PinAddWaitTime)
 			time.Sleep(time.Minute * time.Duration(config.PinAddWaitTime))
@@ -208,7 +209,6 @@ func PinAddFiles(c *cli.Context) error {
 	defaultPinAddFileWG.Wait()
 
 	log.Printf("time after pinadd op: %v\n", time.Now().Format(DEFAULT_TIME_FORMAT))
-
 	return nil
 }
 
@@ -216,10 +216,9 @@ func WorkerForPinAdd(jobs <-chan string) {
 	defer defaultPinAddFileWG.Done()
 
 	for hash := range jobs {
-		log.Println("hash is : ")
+		log.Println("hash is : ", hash)
 
 		data, err := exec.Command("bash", "-c", "ipfs --api /ip4/127.0.0.1/tcp/9095 pin add "+hash).Output()
-
 		if err != nil {
 			log.Fatal(err)
 		}
