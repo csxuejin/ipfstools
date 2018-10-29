@@ -33,18 +33,19 @@ var (
 	}
 
 	hashFileAbsPath     string
+	currentPath         string
 	defaultAddFileWG    sync.WaitGroup
 	defaultPinAddFileWG sync.WaitGroup
 )
 
 func init() {
-	filePath, err := os.Getwd()
+	currentPath, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 		panic("os.GetWd(): " + err.Error())
 	}
 
-	configFilePath := path.Join(filePath, "config.json")
+	configFilePath := path.Join(currentPath, "config.json")
 	if _, err := os.Stat(configFilePath); os.IsExist(err) {
 		data, err := ioutil.ReadFile(configFilePath)
 		if err != nil {
@@ -58,7 +59,7 @@ func init() {
 		}
 	}
 
-	hashFileAbsPath = path.Join(filePath, HASH_FILE)
+	hashFileAbsPath = path.Join(currentPath, HASH_FILE)
 	log.Printf("config is %#v\n", config)
 }
 
@@ -105,31 +106,12 @@ func main() {
 
 //////// 'add' operation
 func AddFiles(c *cli.Context) error {
-	filePath, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-		return err
-	}
-
-	hashFilePath := path.Join(filePath, HASH_FILE)
-	if _, err := os.Create(hashFilePath); err != nil {
+	if _, err := os.Create(hashFileAbsPath); err != nil {
 		log.Fatalf("create filehashes failed: %v\n")
 		return err
 	}
 
-	switch c.NArg() {
-	case 1:
-		filePath = c.Args()[0]
-
-	case 0:
-		// DO Nothing
-		filePath = path.Join(filePath, DEFAULT_FOLDER)
-
-	default:
-		log.Fatal("Wrong Arguments.")
-		return nil
-	}
-
+	filePath := path.Join(currentPath, DEFAULT_FOLDER)
 	fi, err := os.Stat(filePath)
 	if err != nil {
 		log.Fatal(err)
