@@ -15,26 +15,27 @@ import (
 	"github.com/urfave/cli"
 )
 
-const (
-	DEFAULT_FOLDER = "testfiles"
-	FILE_HASH      = "filehashes"
-)
-
-var (
-	config Config
-
-	fileHashPath               string
-	DefaultAddFileWG           sync.WaitGroup
-	DefaultAddFileWorkerNum    = 10
-	DefaultPinAddFileWG        sync.WaitGroup
-	DefaultPinAddFileWorkerNum = 10
-)
-
 type Config struct {
 	AddFileWorkerNum    int `json:"add_file_worker_num"`
 	PinAddFileWorkerNum int `json:"pin_add_file_worker_num"`
 	PinAddWaitTime      int `json:"pin_add_wait_time"`
 }
+
+const (
+	DEFAULT_FOLDER = "testfiles"
+	HASH_FILE      = "filehashes"
+)
+
+var (
+	config = Config{
+		AddFileWorkerNum:    10,
+		PinAddFileWorkerNum: 10,
+	}
+
+	hashFileAbsPath     string
+	defaultAddFileWG    sync.WaitGroup
+	defaultPinAddFileWG sync.WaitGroup
+)
 
 func init() {
 	filePath, err := os.Getwd()
@@ -44,11 +45,7 @@ func init() {
 	}
 
 	configFilePath := path.Join(filePath, "config.json")
-	_, err = os.Stat(configFilePath)
-	if os.IsNotExist(err) {
-		config.AddFileWorkerNum = DefaultAddFileWorkerNum
-		config.PinAddFileWorkerNum = DefaultPinAddFileWorkerNum
-	} else {
+	if _, err := os.Stat(configFilePath); os.IsExist(err) {
 		data, err := ioutil.ReadFile(configFilePath)
 		if err != nil {
 			log.Fatalf("ioutil.ReadFile(%v): %v\n", configFilePath, err)
@@ -61,8 +58,7 @@ func init() {
 		}
 	}
 
-	fileHashPath = path.Join(filePath, FILE_HASH)
-
+	hashFileAbsPath = path.Join(filePath, HASH_FILE)
 	log.Printf("config is %#v\n", config)
 }
 
@@ -115,7 +111,7 @@ func AddFiles(c *cli.Context) error {
 		return err
 	}
 
-	hashFilePath := path.Join(filePath, FILE_HASH)
+	hashFilePath := path.Join(filePath, HASH_FILE)
 	if _, err := os.Create(hashFilePath); err != nil {
 		log.Fatalf("create filehashes failed: %v\n")
 		return err
@@ -141,7 +137,7 @@ func AddFiles(c *cli.Context) error {
 	}
 
 	jobs := make(chan string, 200)
-	DefaultAddFileWG.Add(config.AddFileWorkerNum)
+	defaultAddFileWG.Add(config.AddFileWorkerNum)
 	for w := 0; w < config.AddFileWorkerNum; w++ {
 		go WorkerForAdd(jobs)
 	}
@@ -163,18 +159,18 @@ func AddFiles(c *cli.Context) error {
 	}
 
 	close(jobs)
-	DefaultAddFileWG.Wait()
+	defaultAddFileWG.Wait()
 
 	return nil
 }
 
 func WorkerForAdd(jobs <-chan string) {
-	f, err := os.OpenFile(fileHashPath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	f, err := os.OpenFile(hashFileAbsPath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		panic(err)
 	}
 
-	defer DefaultAddFileWG.Done()
+	defer defaultAddFileWG.Done()
 
 	for filePath := range jobs {
 		log.Println("filePath is : ", filePath)
@@ -203,14 +199,14 @@ func WorkerForAdd(jobs <-chan string) {
 func PinAddFiles(c *cli.Context) error {
 	log.Printf("time before pinadd op: %v\n", time.Now())
 	jobs := make(chan string, 200)
-	DefaultPinAddFileWG.Add(config.PinAddFileWorkerNum)
+	defaultPinAddFileWG.Add(config.PinAddFileWorkerNum)
 	for w := 0; w < config.PinAddFileWorkerNum; w++ {
 		go WorkerForPinAdd(jobs)
 	}
 
-	data, err := ioutil.ReadFile(fileHashPath)
+	data, err := ioutil.ReadFile(hashFileAbsPath)
 	if err != nil {
-		log.Fatalf("ioutil.ReadFile(%v): %v\n", fileHashPath, err)
+		log.Fatalf("ioutil.ReadFile(%v): %v\n", hashFileAbsPath, err)
 		return nil
 	}
 
@@ -225,7 +221,7 @@ func PinAddFiles(c *cli.Context) error {
 		}
 	}
 	close(jobs)
-	DefaultPinAddFileWG.Wait()
+	defaultPinAddFileWG.Wait()
 
 	log.Printf("time after pinadd op: %v\n", time.Now())
 
@@ -233,7 +229,7 @@ func PinAddFiles(c *cli.Context) error {
 }
 
 func WorkerForPinAdd(jobs <-chan string) {
-	defer DefaultPinAddFileWG.Done()
+	defer defaultPinAddFileWG.Done()
 
 	for hash := range jobs {
 		log.Println("hash is : ")
@@ -251,9 +247,9 @@ func WorkerForPinAdd(jobs <-chan string) {
 func PinRmFiles(c *cli.Context) error {
 	log.Printf("time before pin rm op: %v\n", time.Now())
 
-	data, err := ioutil.ReadFile(fileHashPath)
+	data, err := ioutil.ReadFile(hashFileAbsPath)
 	if err != nil {
-		log.Fatalf("ioutil.ReadFile(%v): %v\n", fileHashPath, err)
+		log.Fatalf("ioutil.ReadFile(%v): %v\n", hashFileAbsPath, err)
 		return nil
 	}
 
